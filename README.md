@@ -1,4 +1,42 @@
-# Implementacion de DommGeneric para linux con Frame Buffer.
+# DoomGeneric - Linux Framebuffer Edition
+
+Este es un port del proyecto [DoomGeneric](https://github.com/ozkl/doomgeneric) que permite ejecutar DOOM directamente sobre el framebuffer de Linux, **sin entorno gráfico, ni SDL, ni X11**.
+
+Ideal para sistemas embebidos o pruebas de bajo nivel como en el Kindle.
+
+
+## ¿Qué hace este port?
+
+- Corre Doom usando acceso directo a `/dev/fb0` (framebuffer).
+- Lee el teclado en **modo raw** para capturar eventos sin depender de ninguna librería gráfica.
+- Restaura el estado del terminal al salir, incluso si se cierra abruptamente.
+- Compatible con resoluciones comunes (autodetectadas).
+- Próximamente: soporte opcional para sonido con OSS.
+
+## Requisitos
+
+- Linux (sin entorno gráfico, se recomienda iniciar sesión en TTY o con `Ctrl+Alt+F3`)
+- Compilador C (`clang` o `gcc`)
+- Acceso a `/dev/fb0` y `/dev/tty` (necesario: correr como `root` o con permisos)
+- Un archivo `.WAD` válido (por ejemplo `freedoom1.wad` o `DOOM1.WAD`)
+
+
+## 🛠️ Compilación
+
+```bash
+make
+```
+## Ejecucion
+```bash
+sudo ./doomgeneric_linux -iwad freedoom1.wad
+```
+Requiere sudo para acceso a framebuffer.
+
+## Autor
+Implementado por Nicolás, como ejercicio de aprendizaje en bajo nivel y portabilidad de DOOM.
+
+## Licencia
+Basado en el proyecto DoomGeneric de ozkl, bajo licencia GPLv2. Este fork mantiene la misma licencia.
 
 # Entendiendo DoomGeneric y otras cosas
 
