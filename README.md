@@ -1,4 +1,4 @@
-#Implementacion de DommGeneric para linux con Frame Buffer.
+# Implementacion de DommGeneric para linux con Frame Buffer.
 
 # Entendiendo DoomGeneric y otras cosas
 
