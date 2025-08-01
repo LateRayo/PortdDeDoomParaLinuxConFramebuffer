@@ -1,3 +1,5 @@
+#Implementacion de DommGeneric para linux con Frame Buffer.
+
 # Entendiendo DoomGeneric y otras cosas
 
 ## Que significan los prefijos en los fichero:
