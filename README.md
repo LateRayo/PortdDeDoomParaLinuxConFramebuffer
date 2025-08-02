@@ -78,8 +78,7 @@ uint32_t DG_GetTicksMs();
 int DG_GetKey(int* pressed, unsigned char* key);
 void DG_SetWindowTitle(const char * title);
 ```
-
-### Impleplementacion para linux con framebuffer.
+Impleplementacion para linux con framebuffer.
 
 #### ¿Qué es el *framebuffer*?
 
@@ -91,23 +90,15 @@ En sistemas como Linux, suele estar mapeado en el dispositivo `/dev/fb0`. Este a
 
 Cuando usás el framebuffer directamente en Linux (sin X11, ni Wayland, ni nada gráfico), estás escribiendo **directamente sobre la pantalla** (como si fuera una terminal de texto en modo gráfico). No hay ventanas, ni mouse, ni decoraciones, ni títulos. Todo el sistema gráfico lo manejás vos, como si fueras el único programa dibujando.
 
-Para encontrar un píxel en la posición (x, y), usás la fórmula:
+#### Acceder al *framebuffer*
 
-```c
-offset = y * pitch + x * bytes_por_pixel
-```
-
-Donde:
-
-- `pitch` = número de bytes por fila (a veces mayor que `ancho * bytes_por_pixel` por padding)
-
-- `bytes_por_pixel` = 1, 2, 3 o 4 dependiendo del modo de color
+El framebuffer es un file descripto, un archvo que deve ser abierto como cualquier otro. Pero para tener un acceso mas rapido a esa procion de la memoria hay que maperarlo.
 
 Cuando *mapeás* un archivo o un dispositivo a memoria con `mmap()`, lo que hacés es **crear una región en la memoria de tu programa que representa directamente el contenido de ese archivo o dispositivo**.
 
 Así, podés leer y escribir en esa región de memoria como si fuera un array, y esos cambios **afectan directamente el archivo o dispositivo subyacente**.
 
-mapear el `framebuffer` es muchísimo más rápido y práctico que usar `read()` y `write()` constantemente.  Además, te da acceso aleatorio: podés ir directo al byte que querés sin tener que leer todo antes.
+mapear el `framebuffer` es muchísimo más rápido y práctico que usar `read()` y `write()` constantemente. Además, te da acceso aleatorio: podés ir directo al byte que querés sin tener que leer todo antes.
 
 ```c
 int fb = open("/dev/fb0", O_RDWR); 
@@ -115,8 +106,136 @@ int fb = open("/dev/fb0", O_RDWR);
 uint8_t* framebuffer = mmap(NULL, screensize, PROT_READ | PROT_WRITE, MAP_SHARED, fb, 0);`
 ```
 
+**`NULL`**
+
+- Esto indica que **el sistema elija automáticamente** en qué dirección de memoria hacer el mapeo.
+  
+- Alternativamente podrías pedir una dirección específica, pero no es lo común salvo en casos muy controlados.
+  
+
+**`screensize`**
+
+- Es el **tamaño** en bytes que querés mapear (calculado antes con `vinfo.yres_virtual * finfo.line_length`, mas adelante esta explciado).
+  
+- Es decir, cuánta memoria querés tener mapeada.
+  
+
+**`PROT_READ | PROT_WRITE`**
+
+- Esto define los **permisos** de acceso a esa memoria.
+  
+- `PROT_READ`: Podés leer.
+  
+- `PROT_WRITE`: Podés escribir.
+  
+- En conjunto: accedés como a un array normal.
+  
+
+**`MAP_SHARED`**
+
+- Esto significa que los cambios que hagas en esa memoria **se reflejan en el archivo real** (en este caso, el framebuffer).
+  
+- Es decir: si escribís en ese array, **los píxeles cambian en pantalla**.
+  
+- Alternativa sería `MAP_PRIVATE`, pero eso haría una copia, y los cambios no llegarían al framebuffer real.
+  
+
+**`fb_fd`**
+
+- Es el descriptor de archivo para el framebuffer (`/dev/fb0`).
+  
+- Lo abriste antes con `open()`.
+  
+
+**`0`**
+
+- Es el **offset** desde el inicio del archivo que querés mapear.
+  
+- En este caso es 0 → empezás desde el principio del framebuffer.
+  
+
 ```c
 framebuffer[0] = 0x00; // modifica el primer byte del framebuffer`
+framebuffer[y * finfo.line_length + x * (vinfo.bits_per_pixel / 8)] = valor; // esto putna un pixel
+```
+
+#### Funciones `IOCTL`
+
+`ioctl` significa **input/output control**. Es una función del sistema operativo (syscall) que se usa para enviar **órdenes o solicitudes especiales** a dispositivos que no pueden hacerse solo con `read()` o `write()`.
+
+```c
+#include <sys/ioctl.h> 
+
+fb_fix_screeninfoint ioctl(int fd, unsigned long request, ...);
+```
+
+- `fd`: el descriptor de archivo (por ejemplo, un `open("/dev/fb0")`)
+  
+- `request`: el **comando** que le estás pidiendo al dispositivo.
+  
+- (opcional) un puntero a una estructura donde se guardarán datos, o que vos llenás con datos para pasarlos al kernel.
+  
+
+COn `ictl()` puedes obtener muhcas cosas. Del framebuffer obtener la resolucion, color depyh, offset, cambiar modo, ect; de la terminal pudes ambiar a modo raw, ajustar velocidad del baudrate, etc; de los sockets activar flags especiales, configurar buffers, etc; y muhcas cosas mas.
+
+##### Uso en el Doom Generic.
+
+Se utilizan para cargar estructuras con infromacion util.
+
+```c
+#include <linux/fb.h> 
+
+static struct fb_var_screeninfo vinfo; 
+static struct fb_fix_screeninfo finfo;
+
+
+if (ioctl(fb_fd, FBIOGET_FSCREENINFO, &finfo) == -1) 
+{
+    perror("Error: ioctl FSCREENINFO");
+    exit(1);
+}
+
+if (ioctl(fb_fd, FBIOGET_VSCREENINFO, &vinfo) == -1) 
+{
+    perror("Error: ioctl VSCREENINFO");
+    exit(1);
+}
+```
+
+En `struc fb_var_screeninfo vinfo` se recolecta principalmente la siguente infromacion:
+
+- nombre del framebuffer (ej. `"EFI VGA"`),
+  
+- cantidad de bytes por cada línea (`line_length`),
+  
+- tipo de aceleración,
+  
+- base física de la memoria del framebuffer.
+  
+
+Y en `struc fb_fix_screeninfo finfo` se recolecta principalmente la siguente infromacion:
+
+- Resolución (xres, yres)
+  
+- Bits por píxel
+  
+- Offset de cada color en el píxel
+  
+- Frecuencia de actualización
+  
+
+#### Pintar la pantalla
+
+`DG_ScreenBuffer` un buffer que contiene la infromacion ya rederizada por Doom de lo que hay que mostrar por patalla, osea, el frame. ese frame hay que ponerlo en nunestro framebuffer.
+
+Ejemplo simple se asignacion de pixel al framebuffer de linux.
+
+```c
+ long location = (x + vinfo.xoffset) * (vinfo.bits_per_pixel / 8) + (y + vinfo.yoffset) * finfo.line_length;
+
+pixel_t pixel = DG_ScreenBuffer[y * DOOMGENERIC_RESX + x]; // entrego la informacion de un pixel
+
+*((uint32_t*)(framebuffer + location)) = pixel;
 ```
 
 ### ¿Qué tiene que hacer `DG_Init()`?
