@@ -42,26 +42,26 @@ Basado en el proyecto DoomGeneric de ozkl, bajo licencia GPLv2. Este fork mantie
 
 ## Que significan los prefijos en los fichero:
 
-| Prefijo | Significado                                                             | Ejemplo(s)                             | Comentario                                                                 |
-| ------- | ----------------------------------------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------- |
-| `i_`    | *"Implementation" o "Interface"* de bajo nivel (plataforma dependiente) | `i_sound.c`, `i_video.c`, `i_system.c` | Encapsulan la comunicación con el sistema operativo o el hardware          |
-| `s_`    | *"Sound"*                                                               | `s_sound.c`                            | Lógica de manejo de sonido a nivel general, independiente de plataforma    |
-| `m_`    | *"Miscellaneous"* o *"Memory"*                                          | `m_misc.c`, `m_fixed.c`, `m_alloc.c`   | Utilidades generales o funciones matemáticas                               |
-| `p_`    | *"Player"* o *"Physics"*                                                | `p_user.c`, `p_map.c`, `p_tick.c`      | Lógica del jugador o del mundo                                             |
-| `g_`    | *"Game"*                                                                | `g_game.c`                             | Control general del flujo de juego (iniciar partida, cargar niveles, etc.) |
-| `f_`    | *"Finale"*                                                              | `f_finale.c`                           | Manejo de las escenas finales o intermedias                                |
-| `d_`    | *"Data"* o *"Definitions"*                                              | `d_main.c`, `d_items.c`                | Datos compartidos o inicialización global                                  |
-| `r_`    | *"Renderer"*                                                            | `r_draw.c`, `r_main.c`, `r_bsp.c`      | Todo lo que tiene que ver con gráficos y renderizado                       |
-| `v_`    | *"Video"*                                                               | `v_video.c`                            | A veces lo usan en lugar de `i_video.c`                                    |
-| `hu_`   | *"Heads Up display"*                                                    | `hu_stuff.c`                           | HUD, textos en pantalla                                                    |
-| `st_`   | *"Status bar"*                                                          | `st_stuff.c`                           | Lógica de la barra de estado (vida, balas, etc.)                           |
-| `am_`   | *"Automap"*                                                             | `am_map.c`                             | Código del automapa                                                        |
-| `wi_`   | *"WInscreen"* o *"WIpe"*                                                | `wi_stuff.c`                           | Pantalla de puntuación entre niveles                                       |
-| `z_`    | *"Zone memory management"*                                              | `z_zone.c`                             | Sistema de gestión de memoria dinámica                                     |
+| Prefijo | Significado | Ejemplo(s) | Comentario |
+| --- | --- | --- | --- |
+| `i_` | *"Implementation" o "Interface"* de bajo nivel (plataforma dependiente) | `i_sound.c`, `i_video.c`, `i_system.c` | Encapsulan la comunicación con el sistema operativo o el hardware |
+| `s_` | *"Sound"* | `s_sound.c` | Lógica de manejo de sonido a nivel general, independiente de plataforma |
+| `m_` | *"Miscellaneous"* o *"Memory"* | `m_misc.c`, `m_fixed.c`, `m_alloc.c` | Utilidades generales o funciones matemáticas |
+| `p_` | *"Player"* o *"Physics"* | `p_user.c`, `p_map.c`, `p_tick.c` | Lógica del jugador o del mundo |
+| `g_` | *"Game"* | `g_game.c` | Control general del flujo de juego (iniciar partida, cargar niveles, etc.) |
+| `f_` | *"Finale"* | `f_finale.c` | Manejo de las escenas finales o intermedias |
+| `d_` | *"Data"* o *"Definitions"* | `d_main.c`, `d_items.c` | Datos compartidos o inicialización global |
+| `r_` | *"Renderer"* | `r_draw.c`, `r_main.c`, `r_bsp.c` | Todo lo que tiene que ver con gráficos y renderizado |
+| `v_` | *"Video"* | `v_video.c` | A veces lo usan en lugar de `i_video.c` |
+| `hu_` | *"Heads Up display"* | `hu_stuff.c` | HUD, textos en pantalla |
+| `st_` | *"Status bar"* | `st_stuff.c` | Lógica de la barra de estado (vida, balas, etc.) |
+| `am_` | *"Automap"* | `am_map.c` | Código del automapa |
+| `wi_` | *"WInscreen"* o *"WIpe"* | `wi_stuff.c` | Pantalla de puntuación entre niveles |
+| `z_` | *"Zone memory management"* | `z_zone.c` | Sistema de gestión de memoria dinámica |
 
 ## Archivos principales `doomgeneric.c`y`doomgeneric.h`
 
- Estos son el núcleo del "port genérico". Acá es donde se abstraen las funciones específicas del sistema operativo (dibujado, entrada, tiempo, etc.).  
+Estos son el núcleo del "port genérico". Acá es donde se abstraen las funciones específicas del sistema operativo (dibujado, entrada, tiempo, etc.).
 
 Hay que trabajar principalmente sobre estos si querés hacer un port para otra plataforma (como Kindle).
 
@@ -78,7 +78,8 @@ uint32_t DG_GetTicksMs();
 int DG_GetKey(int* pressed, unsigned char* key);
 void DG_SetWindowTitle(const char * title);
 ```
-Impleplementacion para linux con framebuffer.
+
+## Impleplementacion para linux con framebuffer.
 
 #### ¿Qué es el *framebuffer*?
 
@@ -238,19 +239,38 @@ pixel_t pixel = DG_ScreenBuffer[y * DOOMGENERIC_RESX + x]; // entrego la informa
 *((uint32_t*)(framebuffer + location)) = pixel;
 ```
 
+#### Pasos hasta llegar a DrawFrame hechos por DoomGeneric
+
+```html
+[ DOOM core ] <--- Renderizado
+     |
+     v
+[I_VideoBuffer]  <--- (paleta 256 colores)
+     |
+     v
+[cmap_to_fb()]   <--- convierte a RGB
+     |
+     v
+[DG_ScreenBuffer]   <--- contiene píxeles reales
+     |
+     v
+[DG_DrawFrame()]    <--- muestra en pantalla
+```
+
 ### ¿Qué tiene que hacer `DG_Init()`?
 
 **Paso a paso conceptual:**
 
 1. **Abrir el framebuffer `/dev/fb0`**.
-
+  
 2. **Obtener información sobre la pantalla** usando `ioctl()` (resolución, formato de píxeles, etc.).
-
+  
 3. **Mapear el framebuffer a memoria** con `mmap()` para poder escribir píxeles directamente.
-
+  
 4. (Opcional) Verificar que el formato sea compatible con `pixel_t` (ej: 32 bits RGB o similar).
-
+  
 5. Dejar todo listo para que `DG_DrawFrame()` simplemente copie el buffer.
+  
 
 ### ¿Qué tiene que hacer `DG_GetTicksMs()`?
 
@@ -274,23 +294,25 @@ Es el encargado de obetner la entrada y guardarla para usarla en `void I_GetEven
 
 Se obtiene a partir de la entrada por terminal, pero hay que hacer configutraciones para que no haya que paretar `entrer` luego de calda tecla.
 
- **Modo canónico (normal)**
+**Modo canónico (normal)**
 
 - La terminal **espera hasta que pulses ENTER** antes de enviar los caracteres al programa.
-
+  
 - Eso significa que si escribís "hola", el programa no verá nada hasta que aprietes ENTER.
-
+  
 - Además, la terminal procesa algunos caracteres especiales (como CTRL+C para interrumpir).
+  
 
 **Modo no canónico (raw)**
 
 - La terminal envía **cada carácter inmediatamente cuando se presiona**.
-
+  
 - Así, si apretás 'h', el programa recibe esa 'h' sin esperar al ENTER.
-
+  
 - Además, en raw podés desactivar la visualización automática de las teclas (eco).
-
+  
 - Permite detectar cada pulsación de tecla al instante.
+  
 
 **Porque se usa modo Raw**
 
@@ -299,11 +321,23 @@ Un juego necesita reaccionar **en tiempo real** a las teclas, no esperar que el 
 **Cómo funcionan las señales (ej. Ctrl+C) si el terminal está en modo raw?**
 
 - Aunque el modo raw **deshabilita el procesamiento normal de la terminal** (como esperar ENTER o hacer eco), el kernel de Linux sigue reconociendo ciertas combinaciones de teclas especiales como **señales**.
-
+  
 - Por ejemplo, cuando apretás **Ctrl+C**, el terminal genera la señal **SIGINT** para el proceso, **incluso en modo raw**.
-
+  
 - Eso significa que el programa recibe la señal y puede manejarla (o terminar).
+  
+
+#### IMPORTANTE
+
+Es importante implementar un desabilitado automatico del modo Raw al salir del juego porque sino te quedara la rerminal inhabilitada y tu atrapado en ella. Si por alguna razon quedaras atrapado al reiniciar la pc con `Ctrl + Alt + Suprimir` vuelve todo a la nromalidad.
 
 ### ¿Que hace `DG_SleepMs()`?
 
-`DG_SleepMs` detiene la ejecución del programa durante una cantidad de milisegundos especificada. Es útil para controlar la velocidad del bucle principal del juego y evitar que el programa consuma innecesariamente toda la CPU. Internamente, suele utilizar funciones del sistema operativo como `usleep()` en Linux, que permiten suspender la ejecución por intervalos breves de tiempo.
+`DG_SleepMs` detiene la ejecución del programa durante una cantidad de milisegundos especificada. Es útil para controlar la velocidad del bucle principal del juego y evitar que el programa consuma innecesariamente toda la CPU. Internamente, suele utilizar funciones del sistema operativo como `usleep()` en Linux, que permiten suspender la ejecución por intervalos de microsegundos, por eso se multiplia el argumento por 1000.
+
+```c
+void DG_SleepMs(uint32_t ms)
+{
+    usleep(ms * 1000); 
+}
+```
