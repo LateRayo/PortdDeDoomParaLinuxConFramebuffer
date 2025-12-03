@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "time.h": "c",
+        "doomgeneric.h": "c",
+        "i_video.h": "c",
+        "m_config.h": "c",
+        "m_argv.h": "c"
+    }
+}
