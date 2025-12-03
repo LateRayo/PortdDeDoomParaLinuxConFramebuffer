@@ -335,7 +335,8 @@ void I_FinishUpdate (void)
 
     /* DRAW SCREEN */
     line_in  = (unsigned char *) I_VideoBuffer;
-    line_out = (unsigned char *) DG_ScreenBuffer;
+    line_out = (unsigned char *) DG_ScreenBuffer; 
+    // (unsigned char *) es un cast tipo puntero
 
     y = SCREENHEIGHT;
 

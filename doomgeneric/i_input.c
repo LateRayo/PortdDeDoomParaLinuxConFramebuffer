@@ -224,7 +224,26 @@ static const char shiftxform[] =
 
 static unsigned char TranslateKey(unsigned char key)
 {
-	return key;
+    switch (key)
+    {
+        case 10:  return 13;  // Enter
+        case 27:  return KEY_ESCAPE;  // Escape
+
+        case 'w': case 'W': return KEY_UPARROW;
+        case 's': case 'S': return KEY_DOWNARROW;
+        case 'a': case 'A': return KEY_LEFTARROW;
+        case 'd': case 'D': return KEY_RIGHTARROW;
+
+        case ' ': return ' '; // Espacio para disparar
+        case 'q': case 'Q': return 'q'; // Salir tal vez
+        case 'e': case 'E': return 'e'; // Interactuar (según configuración del WAD)
+        case 'z': case 'Z': return KEY_FIRE; // Algunas versiones mapean disparo a z
+        case 'm': case 'M': return 'm'; // Menú
+
+        default: return key; // Dejar pasar otras teclas sin traducir
+    }
+
+	
 
 	/*
     if (key < sizeof(at_to_doom))
@@ -275,6 +294,13 @@ static void UpdateShiftStatus(int pressed, unsigned char key)
     }
 }
 
+// ------ implemetacion personal de I_GetEvent ---------
+#include <string.h>  // memcpy
+
+#define MAX_KEYS 256
+
+static unsigned char prevKeys[MAX_KEYS] = {0};
+static unsigned char currKeys[MAX_KEYS] = {0};
 
 void I_GetEvent(void)
 {
@@ -282,57 +308,43 @@ void I_GetEvent(void)
     int pressed;
     unsigned char key;
 
-    
-	while (DG_GetKey(&pressed, &key))
+    // 1) Limpiar currKeys
+    memset(currKeys, 0, sizeof(currKeys));
+
+    // 2) Leer todas las teclas presionadas en este frame
+    while (DG_GetKey(&pressed, &key))
     {
-        UpdateShiftStatus(pressed, key);
-
-        // process event
-        
-        if (pressed)
+        if (pressed && key < MAX_KEYS)
         {
-            // data1 has the key pressed, data2 has the character
-            // (shift-translated, etc)
-            event.type = ev_keydown;
-            event.data1 = TranslateKey(key);
-            event.data2 = GetTypedChar(key);
-
-            if (event.data1 != 0)
-            {
-                D_PostEvent(&event);
-            }
-        }
-        else
-        {
-            event.type = ev_keyup;
-            event.data1 = TranslateKey(key);
-
-            // data2 is just initialized to zero for ev_keyup.
-            // For ev_keydown it's the shifted Unicode character
-            // that was typed, but if something wants to detect
-            // key releases it should do so based on data1
-            // (key ID), not the printable char.
-
-            event.data2 = 0;
-
-            if (event.data1 != 0)
-            {
-                D_PostEvent(&event);
-            }
-            break;
+            currKeys[key] = 1;
         }
     }
 
-
-                /*
-            case SDL_MOUSEMOTION:
-                event.type = ev_mouse;
-                event.data1 = mouse_button_state;
-                event.data2 = AccelerateMouse(sdlevent.motion.xrel);
-                event.data3 = -AccelerateMouse(sdlevent.motion.yrel);
+    // 3) Generar eventos de keydown / keyup
+    for (int k = 0; k < MAX_KEYS; k++)
+    {
+        if (currKeys[k] && !prevKeys[k])
+        {
+            // keydown
+            event.type  = ev_keydown;
+            event.data1 = TranslateKey((unsigned char)k);
+            event.data2 = GetTypedChar((unsigned char)k);
+            if (event.data1)
                 D_PostEvent(&event);
-                break;
-                */
+        }
+        else if (!currKeys[k] && prevKeys[k])
+        {
+            // keyup
+            event.type  = ev_keyup;
+            event.data1 = TranslateKey((unsigned char)k);
+            event.data2 = 0;
+            if (event.data1)
+                D_PostEvent(&event);
+        }
+    }
+
+    // 4) Guardar estado para el próximo frame
+    memcpy(prevKeys, currKeys, sizeof(prevKeys));
 }
 
 void I_InitInput(void)
